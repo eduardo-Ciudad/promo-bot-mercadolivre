@@ -43,5 +43,6 @@ public class WhatsAppWebhookController {
         log.info("Webhook event received: {}", payload);
 
         return ResponseEntity.ok().build();
+
     }
 }
