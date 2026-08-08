@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    container_name: promobot-app
+    ports:
+      - "8082:8080"
+    environment:
+      - DATABASE_URL=jdbc:postgresql://host.docker.internal:5432/promobot_db
+      - DATABASE_USERNAME=${DATABASE_USERNAME}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID}
+      - WHATSAPP_BUSINESS_ACCOUNT_ID=${WHATSAPP_BUSINESS_ACCOUNT_ID}
+      - WHATSAPP_WEBHOOK_VERIFY_TOKEN=${WHATSAPP_WEBHOOK_VERIFY_TOKEN}
+    mem_limit: 350m
+    restart: unless-stopped
