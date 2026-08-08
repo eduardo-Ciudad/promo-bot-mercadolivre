@@ -1,4 +1,17 @@
 services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: promobot-db
+    environment:
+      - POSTGRES_DB=promobot_db
+      - POSTGRES_USER=${DATABASE_USERNAME}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+    volumes:
+      - promobot_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+
   app:
     build: .
     container_name: promobot-app
@@ -16,3 +29,7 @@ services:
       - WHATSAPP_WEBHOOK_VERIFY_TOKEN=${WHATSAPP_WEBHOOK_VERIFY_TOKEN}
     mem_limit: 350m
     restart: unless-stopped
+
+
+volumes:
+  promobot_data:
