@@ -4,6 +4,8 @@ services:
     container_name: promobot-app
     ports:
       - "8082:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - DATABASE_URL=jdbc:postgresql://host.docker.internal:5432/promobot_db
       - DATABASE_USERNAME=${DATABASE_USERNAME}
