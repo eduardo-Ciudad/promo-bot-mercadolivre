@@ -3,10 +3,10 @@ package com.eduar.promobot.domain.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.util.UUID;
 
 @Embeddable
 @Getter
@@ -23,4 +23,7 @@ public class Produto {
 
     @Column(name = "produto_categoria", length = 150)
     private String categoria;
+
+
+
 }
