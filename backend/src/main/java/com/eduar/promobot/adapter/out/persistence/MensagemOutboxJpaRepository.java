@@ -18,16 +18,23 @@ public interface MensagemOutboxJpaRepository extends JpaRepository<MensagemOutbo
      */
     @Query(value = """
             UPDATE mensagem_outbox
-            SET status = 'PROCESSANDO'
+            SET status = 'PROCESSANDO', reivindicado_em = now()
             WHERE id IN (
                 SELECT id FROM mensagem_outbox
-                WHERE status = 'PENDENTE'
-                  AND (proxima_tentativa_em IS NULL OR proxima_tentativa_em <= now())
+                WHERE (status = 'PENDENTE'
+                       AND (proxima_tentativa_em IS NULL OR proxima_tentativa_em <= now()))
+                   OR (status = 'PROCESSANDO'
+                       AND reivindicado_em < now() - make_interval(secs => :leaseTimeoutSeconds))
                 ORDER BY criado_em
                 FOR UPDATE SKIP LOCKED
                 LIMIT :limite
             )
             RETURNING *
             """, nativeQuery = true)
-    List<MensagemOutbox> reivindicarPendentes(@Param("limite") int limite);
+    List<MensagemOutbox> reivindicarPendentes(@Param("limite") int limite,
+                                               @Param("leaseTimeoutSeconds") long leaseTimeoutSeconds);
+
+    default List<MensagemOutbox> reivindicarPendentes(int limite) {
+        return reivindicarPendentes(limite, 120);
+    }
 }

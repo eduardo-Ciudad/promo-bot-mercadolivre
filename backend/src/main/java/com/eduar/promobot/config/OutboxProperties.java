@@ -7,7 +7,8 @@ public record OutboxProperties(
         long intervaloSchedulerMs,
         int tamanhoLote,
         int maxTentativas,
-        long backoffBaseSegundos
+        long backoffBaseSegundos,
+        long leaseTimeoutSeconds
 ) {
     public OutboxProperties {
         if (intervaloSchedulerMs <= 0) {
@@ -21,6 +22,9 @@ public record OutboxProperties(
         }
         if (backoffBaseSegundos <= 0) {
             backoffBaseSegundos = 10;
+        }
+        if (leaseTimeoutSeconds <= 0) {
+            leaseTimeoutSeconds = 120;
         }
     }
 }

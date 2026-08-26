@@ -38,6 +38,9 @@ public class MensagemOutbox {
     @Column(name = "proxima_tentativa_em")
     private Instant proximaTentativaEm;
 
+    @Column(name = "reivindicado_em")
+    private Instant reivindicadoEm;
+
     @Column(name = "provider_message_id", length = 255)
     private String providerMessageId;
 
@@ -66,12 +69,14 @@ public class MensagemOutbox {
         this.providerMessageId = providerMessageId;
         this.enviadoEm = enviadoEm;
         this.ultimoErro = null;
+        this.reivindicadoEm = null;
     }
 
     public void marcarComoFalha(String motivo, Instant proximaTentativaEm) {
         this.status = proximaTentativaEm != null ? StatusMensagemOutbox.PENDENTE : StatusMensagemOutbox.FALHA;
         this.ultimoErro = motivo;
         this.proximaTentativaEm = proximaTentativaEm;
+        this.reivindicadoEm = null;
     }
 
     public void incrementarTentativa() {

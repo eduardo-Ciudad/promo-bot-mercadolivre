@@ -48,7 +48,8 @@ public class EnviarMensagensPendentesUseCase {
     }
 
     public void processarLote() {
-        List<MensagemOutbox> pendentes = outboxRepository.buscarPendentesParaEnvio(properties.tamanhoLote());
+        List<MensagemOutbox> pendentes = outboxRepository.buscarPendentesParaEnvio(
+                properties.tamanhoLote(), properties.leaseTimeoutSeconds());
         for (MensagemOutbox item : pendentes) {
             processar(item);
         }

@@ -10,7 +10,7 @@ public interface MensagemOutboxRepository {
 
     MensagemOutbox salvar(MensagemOutbox mensagemOutbox);
 
-    List<MensagemOutbox> buscarPendentesParaEnvio(int limite);
+    List<MensagemOutbox> buscarPendentesParaEnvio(int limite, long leaseTimeoutSeconds);
 
     void marcarComoEnviada(UUID id, String providerMessageId, Instant enviadoEm);
 

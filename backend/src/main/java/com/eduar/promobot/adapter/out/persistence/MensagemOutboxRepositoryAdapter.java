@@ -25,8 +25,8 @@ public class MensagemOutboxRepositoryAdapter implements MensagemOutboxRepository
 
     @Override
     @Transactional
-    public List<MensagemOutbox> buscarPendentesParaEnvio(int limite) {
-        return jpaRepository.reivindicarPendentes(limite);
+    public List<MensagemOutbox> buscarPendentesParaEnvio(int limite, long leaseTimeoutSeconds) {
+        return jpaRepository.reivindicarPendentes(limite, leaseTimeoutSeconds);
     }
 
     @Override
