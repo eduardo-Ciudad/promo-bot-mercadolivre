@@ -78,6 +78,12 @@ public class EnviarMensagensPendentesUseCase {
             ResultadoEnvio resultado = enviador.get().enviar(mensagem);
             outboxRepository.marcarComoEnviada(item.getId(), resultado.providerMessageId(), resultado.enviadoEm());
         } catch (RateLimitedException e) {
+            int tentativas = item.getTentativas() + 1;
+            if (tentativas >= properties.maxTentativas()) {
+                outboxRepository.marcarComoFalha(item.getId(),
+                        "Limite de tentativas excedido apos rate limit repetido", null);
+                return;
+            }
             long jitter = ThreadLocalRandom.current().nextLong(0, 5);
             Instant proximaTentativa = Instant.now().plusSeconds(e.getRetryAfterSeconds() + jitter);
             outboxRepository.marcarComoFalha(item.getId(), e.getMessage(), proximaTentativa);
