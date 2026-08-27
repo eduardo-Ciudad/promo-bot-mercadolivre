@@ -51,7 +51,17 @@ public class EnviarMensagensPendentesUseCase {
         List<MensagemOutbox> pendentes = outboxRepository.buscarPendentesParaEnvio(
                 properties.tamanhoLote(), properties.leaseTimeoutSeconds());
         for (MensagemOutbox item : pendentes) {
-            processar(item);
+            try {
+                processar(item);
+            } catch (RuntimeException e) {
+                log.error("Falha inesperada e isolada ao processar mensagem {} do outbox", item.getId(), e);
+                try {
+                    agendarRetentativaComBackoff(item, e.getMessage());
+                } catch (RuntimeException erroAoRegistrarFalha) {
+                    log.error("Nao foi possivel registrar a falha da mensagem {} do outbox",
+                            item.getId(), erroAoRegistrarFalha);
+                }
+            }
         }
     }
 
@@ -71,9 +81,8 @@ public class EnviarMensagensPendentesUseCase {
             return;
         }
 
-        MensagemSaida mensagem = construirMensagem(item, destino.get(), promocao.get());
-
         try {
+            MensagemSaida mensagem = construirMensagem(item, destino.get(), promocao.get());
             outboxRepository.incrementarTentativa(item.getId());
             ResultadoEnvio resultado = enviador.get().enviar(mensagem);
             outboxRepository.marcarComoEnviada(item.getId(), resultado.providerMessageId(), resultado.enviadoEm());
@@ -130,6 +139,10 @@ public class EnviarMensagensPendentesUseCase {
         if (valor == null || valor.isBlank()) {
             return null;
         }
-        return URI.create(valor);
+        try {
+            return URI.create(valor);
+        } catch (IllegalArgumentException e) {
+            throw new EnvioInvalidoException("URL de imagem ou link invalido para construcao de URI");
+        }
     }
 }
