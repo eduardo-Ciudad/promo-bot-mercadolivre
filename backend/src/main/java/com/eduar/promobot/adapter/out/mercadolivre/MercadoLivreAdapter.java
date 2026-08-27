@@ -1,11 +1,14 @@
 package com.eduar.promobot.adapter.out.mercadolivre;
 
+import com.eduar.promobot.adapter.in.webhook.WhatsAppWebhookController;
 import com.eduar.promobot.domain.model.Produto;
 import com.eduar.promobot.domain.model.Promocao;
 import com.eduar.promobot.domain.port.out.BuscadorDePromocoes;
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Page;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -16,8 +19,13 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+
+
 @Component
 public class MercadoLivreAdapter implements BuscadorDePromocoes {
+
+
+    private static final Logger log = LoggerFactory.getLogger(MercadoLivreAdapter.class);
 
     private final Browser browser;
     private final String baseUrlTemplate;
@@ -61,11 +69,10 @@ public class MercadoLivreAdapter implements BuscadorDePromocoes {
             page.waitForSelector(".ui-search-layout__item");
 
             int scrolls = 0;
-            long cardsAtuais = (long) page.evaluate(OfertaExtractionScripts.CONTAR_CARDS);
-            while (cardsAtuais < maxPorCategoria && scrolls < maxScrolls) {
+            long cardsAtuais = ((Number) page.evaluate(OfertaExtractionScripts.CONTAR_CARDS)).longValue();            while (cardsAtuais < maxPorCategoria && scrolls < maxScrolls) {
                 page.evaluate(OfertaExtractionScripts.SCROLL_PARA_BAIXO);
                 page.waitForTimeout(1000);
-                cardsAtuais = (long) page.evaluate(OfertaExtractionScripts.CONTAR_CARDS);
+                cardsAtuais = ((Number) page.evaluate(OfertaExtractionScripts.CONTAR_CARDS)).longValue();
                 scrolls++;
             }
 
@@ -75,9 +82,10 @@ public class MercadoLivreAdapter implements BuscadorDePromocoes {
 
             return mapearParaPromocoes(cardsBrutos, categoria, percentualDescontoMinimo);
 
-        } catch (Exception e) {
-            return List.of();
-        }
+        }  catch (Exception e) {
+        log.error("Falha ao buscar promoções na categoria {}", categoria, e);
+        return List.of();
+    }
     }
 
     private List<Promocao> mapearParaPromocoes(List<Map<String, Object>> cardsBrutos,
