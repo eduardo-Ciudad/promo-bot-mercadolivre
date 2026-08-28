@@ -3,6 +3,7 @@ package com.eduar.promobot.adapter.in.web;
 import com.eduar.promobot.adapter.out.messaging.PromocaoPublisher;
 import com.eduar.promobot.domain.model.Promocao;
 import com.eduar.promobot.domain.port.out.BuscadorDePromocoes;
+import com.eduar.promobot.domain.port.out.PromocaoRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,11 +18,16 @@ public class ScrapingController {
 
     private final BuscadorDePromocoes buscadorDePromocoes;
     private final PromocaoPublisher promocaoPublisher;
+    private final PromocaoRepository promocaoRepository;
 
-    public ScrapingController(BuscadorDePromocoes buscadorDePromocoes, PromocaoPublisher promocaoPublisher) {
+    public ScrapingController(BuscadorDePromocoes buscadorDePromocoes,
+                              PromocaoPublisher promocaoPublisher,
+                              PromocaoRepository promocaoRepository) {
         this.buscadorDePromocoes = buscadorDePromocoes;
         this.promocaoPublisher = promocaoPublisher;
+        this.promocaoRepository = promocaoRepository;
     }
+
 
     @PostMapping("/admin/scraping/executar")
     public String executar() {
@@ -32,6 +38,13 @@ public class ScrapingController {
 
         for (Promocao promocao : encontradas) {
             log.info("Promoção encontrada: {} - R$ {}", promocao.getProduto().getNome(), promocao.getPrecoPromocional());
+
+            if (promocaoRepository.existePorIdExterno(promocao.getIdExterno())) {
+                log.info("Promoção {} já existe no banco, ignorando.", promocao.getIdExterno());
+                continue;
+            }
+
+            promocaoRepository.salvar(promocao);
             promocaoPublisher.publicarParaEnriquecimento(promocao);
         }
 

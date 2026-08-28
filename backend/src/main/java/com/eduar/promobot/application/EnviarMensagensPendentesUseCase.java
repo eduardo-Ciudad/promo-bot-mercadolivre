@@ -19,9 +19,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -34,6 +37,8 @@ public class EnviarMensagensPendentesUseCase {
     private final PromocaoRepository promocaoRepository;
     private final EnviadorRegistry enviadorRegistry;
     private final OutboxProperties properties;
+    private final Map<String, Instant> ultimoEnvioPorDestino = new ConcurrentHashMap<>();
+    private static final long INTERVALO_MINIMO_MS = 1100;
 
     public EnviarMensagensPendentesUseCase(MensagemOutboxRepository outboxRepository,
                                             DestinoDistribuicaoRepository destinoRepository,
@@ -83,6 +88,7 @@ public class EnviarMensagensPendentesUseCase {
 
         try {
             MensagemSaida mensagem = construirMensagem(item, destino.get(), promocao.get());
+            respeitarIntervaloMinimo(destino.get().getExternalId());
             outboxRepository.incrementarTentativa(item.getId());
             ResultadoEnvio resultado = enviador.get().enviar(mensagem);
             outboxRepository.marcarComoEnviada(item.getId(), resultado.providerMessageId(), resultado.enviadoEm());
@@ -144,5 +150,21 @@ public class EnviarMensagensPendentesUseCase {
         } catch (IllegalArgumentException e) {
             throw new EnvioInvalidoException("URL de imagem ou link invalido para construcao de URI");
         }
+    }
+
+    private void respeitarIntervaloMinimo(String externalId) {
+        Instant ultimoEnvio = ultimoEnvioPorDestino.get(externalId);
+        if (ultimoEnvio != null) {
+            long decorridoMs = Duration.between(ultimoEnvio, Instant.now()).toMillis();
+            long faltaEsperar = INTERVALO_MINIMO_MS - decorridoMs;
+            if (faltaEsperar > 0) {
+                try {
+                    Thread.sleep(faltaEsperar);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+        ultimoEnvioPorDestino.put(externalId, Instant.now());
     }
 }
