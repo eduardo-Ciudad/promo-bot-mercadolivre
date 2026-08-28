@@ -6,7 +6,6 @@ RUN mvn dependency:resolve
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-
 # Stage 2: Run (Playwright + JRE 17, inclui Chromium)
 FROM mcr.microsoft.com/playwright/java:v1.48.0-jammy
 WORKDIR /app
