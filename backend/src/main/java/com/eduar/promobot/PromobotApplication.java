@@ -1,5 +1,6 @@
 package com.eduar.promobot;
 
+import com.eduar.promobot.config.GeminiProperties;
 import com.eduar.promobot.config.OutboxProperties;
 import com.eduar.promobot.config.TelegramProperties;
 import com.eduar.promobot.config.WhatsAppProperties;
@@ -12,7 +13,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableScheduling
 @EnableAsync
-@EnableConfigurationProperties({WhatsAppProperties.class, TelegramProperties.class, OutboxProperties.class})
+@EnableConfigurationProperties({WhatsAppProperties.class, TelegramProperties.class, OutboxProperties.class, GeminiProperties.class})
 public class PromobotApplication {
 
 	public static void main(String[] args) {
