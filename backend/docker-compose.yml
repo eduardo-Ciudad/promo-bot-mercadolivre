@@ -54,6 +54,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_WEBHOOK_SECRET_TOKEN=${TELEGRAM_WEBHOOK_SECRET_TOKEN}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - INGESTAO_API_KEY=${INGESTAO_API_KEY}
     mem_limit: 900m
     restart: unless-stopped
 
