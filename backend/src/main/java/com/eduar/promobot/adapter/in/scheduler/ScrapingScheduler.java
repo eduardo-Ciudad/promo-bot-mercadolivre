@@ -1,10 +1,10 @@
 package com.eduar.promobot.adapter.in.scheduler;
 
 
-import com.eduar.promobot.adapter.out.messaging.PromocaoPublisher;
+import com.eduar.promobot.application.IngestaoPromocaoService;
+import com.eduar.promobot.application.ResultadoIngestao;
 import com.eduar.promobot.domain.model.Promocao;
 import com.eduar.promobot.domain.port.out.BuscadorDePromocoes;
-import com.eduar.promobot.domain.port.out.PromocaoRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -18,15 +18,12 @@ public class ScrapingScheduler {
     private static final Logger log = LoggerFactory.getLogger(ScrapingScheduler.class);
 
     private final BuscadorDePromocoes buscadorDePromocoes;
-    private final PromocaoPublisher promocaoPublisher;
-    private final PromocaoRepository promocaoRepository;
+    private final IngestaoPromocaoService ingestaoPromocaoService;
 
     public ScrapingScheduler(BuscadorDePromocoes buscadorDePromocoes,
-                             PromocaoPublisher promocaoPublisher,
-                             PromocaoRepository promocaoRepository) {
+                             IngestaoPromocaoService ingestaoPromocaoService) {
         this.buscadorDePromocoes = buscadorDePromocoes;
-        this.promocaoPublisher = promocaoPublisher;
-        this.promocaoRepository = promocaoRepository;
+        this.ingestaoPromocaoService = ingestaoPromocaoService;
     }
 
     @Scheduled(fixedDelayString = "${scraping.scheduler.intervalo-ms}")
@@ -38,12 +35,10 @@ public class ScrapingScheduler {
 
         int novas = 0;
         for (Promocao promocao : encontradas) {
-            if (promocaoRepository.existePorIdExterno(promocao.getIdExterno())) {
-                continue;
+            ResultadoIngestao resultado = ingestaoPromocaoService.ingerir(promocao);
+            if (resultado == ResultadoIngestao.ACEITA) {
+                novas++;
             }
-            promocaoRepository.salvar(promocao);
-            promocaoPublisher.publicarParaEnriquecimento(promocao);
-            novas++;
         }
 
         log.info("Scraping automático finalizado: {} promoções encontradas, {} novas publicadas", encontradas.size(), novas);

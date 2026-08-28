@@ -1,9 +1,9 @@
 package com.eduar.promobot.adapter.in.web;
 
-import com.eduar.promobot.adapter.out.messaging.PromocaoPublisher;
+import com.eduar.promobot.application.IngestaoPromocaoService;
+import com.eduar.promobot.application.ResultadoIngestao;
 import com.eduar.promobot.domain.model.Promocao;
 import com.eduar.promobot.domain.port.out.BuscadorDePromocoes;
-import com.eduar.promobot.domain.port.out.PromocaoRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,15 +17,12 @@ public class ScrapingController {
     private static final Logger log = LoggerFactory.getLogger(ScrapingController.class);
 
     private final BuscadorDePromocoes buscadorDePromocoes;
-    private final PromocaoPublisher promocaoPublisher;
-    private final PromocaoRepository promocaoRepository;
+    private final IngestaoPromocaoService ingestaoPromocaoService;
 
     public ScrapingController(BuscadorDePromocoes buscadorDePromocoes,
-                              PromocaoPublisher promocaoPublisher,
-                              PromocaoRepository promocaoRepository) {
+                              IngestaoPromocaoService ingestaoPromocaoService) {
         this.buscadorDePromocoes = buscadorDePromocoes;
-        this.promocaoPublisher = promocaoPublisher;
-        this.promocaoRepository = promocaoRepository;
+        this.ingestaoPromocaoService = ingestaoPromocaoService;
     }
 
 
@@ -39,13 +36,10 @@ public class ScrapingController {
         for (Promocao promocao : encontradas) {
             log.info("Promoção encontrada: {} - R$ {}", promocao.getProduto().getNome(), promocao.getPrecoPromocional());
 
-            if (promocaoRepository.existePorIdExterno(promocao.getIdExterno())) {
+            ResultadoIngestao resultado = ingestaoPromocaoService.ingerir(promocao);
+            if (resultado == ResultadoIngestao.IGNORADA_DUPLICATA) {
                 log.info("Promoção {} já existe no banco, ignorando.", promocao.getIdExterno());
-                continue;
             }
-
-            promocaoRepository.salvar(promocao);
-            promocaoPublisher.publicarParaEnriquecimento(promocao);
         }
 
         return "Encontradas " + encontradas.size() + " promoções. Veja o console para detalhes.";
