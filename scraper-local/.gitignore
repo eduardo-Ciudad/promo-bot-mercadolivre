@@ -1,0 +1,5 @@
+target/
+config/scraper.properties
+.idea/
+*.iml
+

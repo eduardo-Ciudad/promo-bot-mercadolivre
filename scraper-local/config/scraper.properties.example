@@ -1,0 +1,23 @@
+# Copie este arquivo para config/scraper.properties para sobrescrever os valores padrao.
+# A URL do endpoint tambem pode ser definida por SCRAPER_VPS_ENDPOINT_URL.
+ingestao.endpoint-url=
+
+scraping.headless=true
+scraping.base-url-template=https://lista.mercadolivre.com.br/%s/_DisplayType_LF_NoIndex_True
+scraping.categoria-padrao=informatica
+scraping.categorias=
+scraping.max-por-categoria=20
+scraping.max-scrolls=10
+scraping.scroll-delay-ms=1000
+scraping.desconto-minimo=10
+scraping.timeout-segundos=30
+
+scheduler.hora-inicio=07:00
+scheduler.hora-fim=20:00
+scheduler.intervalo-minutos=30
+scheduler.timezone=America/Sao_Paulo
+scheduler.executar-ao-iniciar=false
+
+# Obrigatoria e aceita apenas via variavel de ambiente:
+# SCRAPER_INGESTAO_API_KEY=sua-chave
+
