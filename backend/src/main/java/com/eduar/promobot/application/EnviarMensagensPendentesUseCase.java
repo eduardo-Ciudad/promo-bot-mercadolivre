@@ -137,7 +137,9 @@ public class EnviarMensagensPendentesUseCase {
                 promocao.getDescricaoGerada(),
                 imagemUrl,
                 link,
-                promocao.getProduto().getNome()
+                promocao.getProduto().getNome(),
+                promocao.getPrecoOriginal(),
+                promocao.getPrecoPromocional()
         );
     }
 
