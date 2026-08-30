@@ -16,6 +16,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.util.UUID;
 
@@ -43,12 +44,14 @@ class TelegramBotAdapterTest {
 
     private MensagemSaida mensagemSemImagem() {
         return new MensagemSaida(UUID.randomUUID(), CanalDistribuicao.TELEGRAM, "123456", "Oferta imperdivel",
-                null, URI.create("https://exemplo.com/produto"), "Produto Top");
+                null, URI.create("https://exemplo.com/produto"), "Produto Top",
+                new BigDecimal("199.90"), new BigDecimal("149.90"));
     }
 
     private MensagemSaida mensagemComImagem() {
         return new MensagemSaida(UUID.randomUUID(), CanalDistribuicao.TELEGRAM, "123456", "Oferta imperdivel",
-                URI.create("https://exemplo.com/imagem.jpg"), URI.create("https://exemplo.com/produto"), "Produto Top");
+                URI.create("https://exemplo.com/imagem.jpg"), URI.create("https://exemplo.com/produto"), "Produto Top",
+                new BigDecimal("199.90"), new BigDecimal("149.90"));
     }
 
     @Test
