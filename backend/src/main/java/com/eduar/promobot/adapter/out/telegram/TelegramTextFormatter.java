@@ -1,5 +1,9 @@
 package com.eduar.promobot.adapter.out.telegram;
 
+import java.math.BigDecimal;
+import java.text.NumberFormat;
+import java.util.Locale;
+
 final class TelegramTextFormatter {
 
     static final int LIMITE_CAPTION = 1024;
@@ -18,10 +22,15 @@ final class TelegramTextFormatter {
                 .replace(">", "&gt;");
     }
 
-    static String montarConteudo(String titulo, String texto, String link) {
+    static String montarConteudo(String titulo, BigDecimal precoOriginal, BigDecimal precoPromocional,
+                                 String texto, String link) {
         StringBuilder conteudo = new StringBuilder();
         if (titulo != null && !titulo.isBlank()) {
             conteudo.append("<b>").append(escaparHtml(titulo)).append("</b>\n\n");
+        }
+        if (precoOriginal != null && precoPromocional != null) {
+            conteudo.append("De: ").append(formatarPreco(precoOriginal))
+                    .append(", por: <b>").append(formatarPreco(precoPromocional)).append("</b>\n\n");
         }
         if (texto != null && !texto.isBlank()) {
             conteudo.append(escaparHtml(texto));
@@ -30,6 +39,11 @@ final class TelegramTextFormatter {
             conteudo.append("\n\n").append(escaparHtml(link));
         }
         return conteudo.toString();
+    }
+
+    private static String formatarPreco(BigDecimal valor) {
+        NumberFormat formato = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
+        return formato.format(valor);
     }
 
     static String truncar(String conteudo, int limite) {

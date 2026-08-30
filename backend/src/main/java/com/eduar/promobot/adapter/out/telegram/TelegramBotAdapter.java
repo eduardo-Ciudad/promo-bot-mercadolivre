@@ -42,7 +42,8 @@ public class TelegramBotAdapter implements EnviadorDeMensagem {
 
     @Override
     public ResultadoEnvio enviar(MensagemSaida mensagem) {
-        String conteudo = TelegramTextFormatter.montarConteudo(mensagem.titulo(), mensagem.texto(),
+        String conteudo = TelegramTextFormatter.montarConteudo(
+                mensagem.titulo(), mensagem.precoOriginal(), mensagem.precoPromocional(), mensagem.texto(),
                 mensagem.link() != null ? mensagem.link().toString() : null);
 
         try {
