@@ -32,9 +32,11 @@ public class GeminiGeradorDeDescricao implements GeradorDeDescricao {
 
 
         String prompt = "Escreva uma descrição curta e chamativa, em português, "
-                + "para uma promoção de WhatsApp/Telegram do seguinte produto: "
+                + "para uma promoção que será enviada em um grupo do Telegram, sobre o seguinte produto: "
                 + nomeProduto + ", categoria " + categoria
-                + ". Use no máximo 2 frases, tom animado, sem inventar características do produto.";
+                + ". Use no máximo 2 frases, tom animado e direto, sem inventar características do produto, "
+                + "sem mencionar preços ou valores (isso já aparece separadamente na mensagem), "
+                + "e sem mencionar WhatsApp ou qualquer outro aplicativo de mensagens.";
 
         Map<String, Object> corpo = Map.of(
                 "contents", List.of(
