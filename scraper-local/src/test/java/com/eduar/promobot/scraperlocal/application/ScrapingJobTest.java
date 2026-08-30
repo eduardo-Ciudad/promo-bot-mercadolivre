@@ -15,7 +15,7 @@ class ScrapingJobTest {
 
     @Test
     void executaFluxoCompletoEConsolidaResultados() {
-        CriteriosBusca criterios = new CriteriosBusca(10, List.of("informatica"));
+        CriteriosBusca criterios = new CriteriosBusca(10);
         AtomicReference<CriteriosBusca> criteriosRecebidos = new AtomicReference<>();
         List<PromocaoEncontrada> promocoes = List.of(
                 promocao("MLB1"), promocao("MLB2"), promocao("MLB3"),
@@ -53,7 +53,7 @@ class ScrapingJobTest {
                     }
                     return ResultadoIngestao.ACEITA;
                 },
-                new CriteriosBusca(10, List.of()));
+                new CriteriosBusca(10));
 
         ScrapingJob.ResumoExecucao resumo = job.executar();
 

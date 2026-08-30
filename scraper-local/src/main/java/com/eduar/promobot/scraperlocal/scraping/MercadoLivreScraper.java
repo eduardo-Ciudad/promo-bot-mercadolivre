@@ -8,10 +8,14 @@ import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Page;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -19,6 +23,8 @@ import java.util.regex.Pattern;
 
 public final class MercadoLivreScraper {
     private static final Logger LOG = Logger.getLogger(MercadoLivreScraper.class.getName());
+    // TODO: suportar filtros de ofertas por IDs oficiais de categoria (ex.: category=MLB1648).
+    private static final String CATEGORIA_OFERTAS = "ofertas";
     private static final Pattern ID_EXTERNO_PATTERN = Pattern.compile("MLB-?(\\d+)");
     private static final Pattern PRECO_PATTERN = Pattern.compile(
             "(\\d[\\d.]*)\\s*reais(?:\\s*com\\s*(\\d+)\\s*centavos)?",
@@ -34,52 +40,75 @@ public final class MercadoLivreScraper {
 
     public List<PromocaoEncontrada> buscarPromocoes(CriteriosBusca criterios) {
         Objects.requireNonNull(criterios, "criterios e obrigatorio");
-        List<String> categorias = criterios.categorias().isEmpty()
-                ? List.of(config.categoriaPadrao()) : criterios.categorias();
-
-        List<PromocaoEncontrada> resultado = new ArrayList<>();
-        for (String categoria : categorias) {
-            resultado.addAll(buscarPorCategoria(categoria, criterios.percentualDescontoMinimo()));
-        }
-        return List.copyOf(resultado);
+        return buscarOfertas(criterios.percentualDescontoMinimo());
     }
 
-    private List<PromocaoEncontrada> buscarPorCategoria(String categoria, int percentualDescontoMinimo) {
-        String url = config.baseUrlTemplate().formatted(categoria);
+    private List<PromocaoEncontrada> buscarOfertas(int percentualDescontoMinimo) {
         try (BrowserContext context = browser.newContext(); Page page = context.newPage()) {
             page.setDefaultTimeout(config.timeout().toMillis());
             page.setDefaultNavigationTimeout(config.timeout().toMillis());
-            page.navigate(url);
-            page.waitForSelector(".ui-search-layout__item");
 
-            int scrolls = 0;
-            long cardsAtuais = contarCards(page);
-            while (cardsAtuais < config.maxPorCategoria() && scrolls < config.maxScrolls()) {
-                page.evaluate(OfertaExtractionScripts.SCROLL_PARA_BAIXO);
-                page.waitForTimeout(config.scrollDelay().toMillis());
-                cardsAtuais = contarCards(page);
-                scrolls++;
-            }
-
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> cardsBrutos =
-                    (List<Map<String, Object>>) page.evaluate(OfertaExtractionScripts.EXTRAIR_CARDS);
-            return mapearParaPromocoes(cardsBrutos, categoria, percentualDescontoMinimo);
+            List<Map<String, Object>> cardsBrutos = coletarCards(
+                    config.maxProdutos(), config.maxPaginas(), numeroPagina -> extrairPagina(
+                            page, numeroPagina, config.baseUrlTemplate(), config.pageDelay()));
+            return mapearParaPromocoes(cardsBrutos, CATEGORIA_OFERTAS, percentualDescontoMinimo);
         } catch (Exception e) {
-            LOG.log(Level.SEVERE, "Falha ao buscar promocoes na categoria " + categoria, e);
+            LOG.log(Level.SEVERE, "Falha ao buscar ofertas", e);
             return List.of();
         }
     }
 
-    private long contarCards(Page page) {
-        return ((Number) page.evaluate(OfertaExtractionScripts.CONTAR_CARDS)).longValue();
+    @SuppressWarnings("unchecked")
+    static List<Map<String, Object>> extrairPagina(
+            Page page, int numeroPagina, String baseUrlTemplate, Duration pageDelay) {
+        page.navigate(baseUrlTemplate.formatted(numeroPagina));
+        page.waitForSelector(".poly-card");
+        page.waitForTimeout(pageDelay.toMillis());
+        return (List<Map<String, Object>>) page.evaluate(OfertaExtractionScripts.EXTRAIR_CARDS);
+    }
+
+    static List<Map<String, Object>> coletarCards(
+            int maxProdutos,
+            int maxPaginas,
+            Function<Integer, List<Map<String, Object>>> extrairPagina) {
+        Objects.requireNonNull(extrairPagina, "extrairPagina e obrigatorio");
+        List<Map<String, Object>> acumulados = new ArrayList<>();
+        Set<String> idsVistos = new HashSet<>();
+
+        for (int numeroPagina = 1;
+             numeroPagina <= maxPaginas && acumulados.size() < maxProdutos;
+             numeroPagina++) {
+            List<Map<String, Object>> cardsDaPagina = Objects.requireNonNull(
+                    extrairPagina.apply(numeroPagina), "A extracao da pagina retornou uma lista nula");
+            int novosNaPagina = 0;
+
+            for (Map<String, Object> card : cardsDaPagina) {
+                Object url = card.get("url");
+                String idExterno = url instanceof String ? extrairIdExterno((String) url) : null;
+                if (idExterno == null || !idsVistos.add(idExterno)) {
+                    continue;
+                }
+
+                acumulados.add(card);
+                novosNaPagina++;
+                if (acumulados.size() >= maxProdutos) {
+                    break;
+                }
+            }
+
+            if (novosNaPagina == 0) {
+                break;
+            }
+        }
+
+        return List.copyOf(acumulados);
     }
 
     private List<PromocaoEncontrada> mapearParaPromocoes(List<Map<String, Object>> cardsBrutos,
                                                           String categoria,
                                                           int percentualDescontoMinimo) {
         List<PromocaoEncontrada> promocoes = new ArrayList<>();
-        int quantidadeParaAnalisar = Math.min(cardsBrutos.size(), config.maxPorCategoria());
+        int quantidadeParaAnalisar = Math.min(cardsBrutos.size(), config.maxProdutos());
         for (int indice = 0; indice < quantidadeParaAnalisar; indice++) {
             Map<String, Object> cardBruto = cardsBrutos.get(indice);
             OfertaCard card = new OfertaCard(
@@ -118,13 +147,13 @@ public final class MercadoLivreScraper {
         return List.copyOf(promocoes);
     }
 
-    private String extrairIdExterno(String url) {
+    static String extrairIdExterno(String url) {
         if (url == null) return null;
         Matcher matcher = ID_EXTERNO_PATTERN.matcher(url);
         return matcher.find() ? "MLB" + matcher.group(1) : null;
     }
 
-    private BigDecimal parsePrecoLabel(String label) {
+    static BigDecimal parsePrecoLabel(String label) {
         if (label == null) return null;
         Matcher matcher = PRECO_PATTERN.matcher(label);
         if (!matcher.find()) return null;

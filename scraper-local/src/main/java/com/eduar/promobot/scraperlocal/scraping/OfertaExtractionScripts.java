@@ -5,10 +5,10 @@ final class OfertaExtractionScripts {
     }
 
     static final String CONTAR_CARDS =
-            "document.querySelectorAll('.ui-search-layout__item').length";
+            "document.querySelectorAll('.poly-card').length";
 
     static final String EXTRAIR_CARDS = """
-            [...document.querySelectorAll('.ui-search-layout__item')].map(card => {
+            [...document.querySelectorAll('.poly-card')].map(card => {
                 const current = card.querySelector('.poly-price__current .andes-money-amount');
                 const previous = card.querySelector('.andes-money-amount--previous');
 
@@ -22,8 +22,4 @@ final class OfertaExtractionScripts {
                 };
             })
             """;
-
-    static final String SCROLL_PARA_BAIXO =
-            "window.scrollTo(0, document.body.scrollHeight)";
 }
-

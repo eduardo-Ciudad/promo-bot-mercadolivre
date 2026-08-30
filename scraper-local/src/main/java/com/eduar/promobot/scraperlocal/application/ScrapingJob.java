@@ -22,7 +22,7 @@ public final class ScrapingJob {
 
     public ScrapingJob(MercadoLivreScraper scraper, IngestaoClient ingestaoClient, ScraperConfig config) {
         this(scraper::buscarPromocoes, ingestaoClient::enviar,
-                new CriteriosBusca(config.descontoMinimo(), config.categorias()));
+                new CriteriosBusca(config.descontoMinimo()));
     }
 
     ScrapingJob(Function<CriteriosBusca, List<PromocaoEncontrada>> buscarPromocoes,
@@ -76,4 +76,3 @@ public final class ScrapingJob {
             int falhas) {
     }
 }
-

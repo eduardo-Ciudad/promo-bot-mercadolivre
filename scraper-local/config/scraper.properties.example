@@ -3,12 +3,12 @@
 ingestao.endpoint-url=
 
 scraping.headless=true
-scraping.base-url-template=https://lista.mercadolivre.com.br/%s/_DisplayType_LF_NoIndex_True
-scraping.categoria-padrao=informatica
-scraping.categorias=
-scraping.max-por-categoria=20
-scraping.max-scrolls=10
-scraping.scroll-delay-ms=1000
+# A pagina de ofertas usa paginacao classica; %d sera substituido pelo numero da pagina.
+scraping.base-url-template=https://www.mercadolivre.com.br/ofertas?page=%d
+scraping.max-produtos=20
+scraping.max-paginas=10
+# Pausa de estabilidade entre navegacoes de pagina.
+scraping.page-delay-ms=1000
 scraping.desconto-minimo=10
 scraping.timeout-segundos=30
 
@@ -20,4 +20,3 @@ scheduler.executar-ao-iniciar=false
 
 # Obrigatoria e aceita apenas via variavel de ambiente:
 # SCRAPER_INGESTAO_API_KEY=sua-chave
-

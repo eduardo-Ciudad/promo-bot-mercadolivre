@@ -8,8 +8,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -18,11 +16,9 @@ public record ScraperConfig(
         String ingestaoApiKey,
         boolean headless,
         String baseUrlTemplate,
-        String categoriaPadrao,
-        List<String> categorias,
-        int maxPorCategoria,
-        int maxScrolls,
-        Duration scrollDelay,
+        int maxProdutos,
+        int maxPaginas,
+        Duration pageDelay,
         int descontoMinimo,
         Duration timeout,
         LocalTime horaInicio,
@@ -34,21 +30,18 @@ public record ScraperConfig(
     private static final Path DEFAULT_CONFIG_PATH = Path.of("config", "scraper.properties");
 
     public ScraperConfig {
-        categorias = List.copyOf(categorias);
-
         if (!"http".equalsIgnoreCase(ingestaoEndpointUrl.getScheme())
                 && !"https".equalsIgnoreCase(ingestaoEndpointUrl.getScheme())) {
             throw new IllegalArgumentException("A URL de ingestao deve usar HTTP ou HTTPS");
         }
         exigirTexto(ingestaoApiKey, "SCRAPER_INGESTAO_API_KEY");
         exigirTexto(baseUrlTemplate, "scraping.base-url-template");
-        exigirTexto(categoriaPadrao, "scraping.categoria-padrao");
-        if (!baseUrlTemplate.contains("%s")) {
-            throw new IllegalArgumentException("scraping.base-url-template deve conter %s");
+        if (!baseUrlTemplate.contains("%d")) {
+            throw new IllegalArgumentException("scraping.base-url-template deve conter %d");
         }
-        exigirPositivo(maxPorCategoria, "scraping.max-por-categoria");
-        exigirNaoNegativo(maxScrolls, "scraping.max-scrolls");
-        exigirDuracaoPositiva(scrollDelay, "scraping.scroll-delay-ms");
+        exigirPositivo(maxProdutos, "scraping.max-produtos");
+        exigirPositivo(maxPaginas, "scraping.max-paginas");
+        exigirDuracaoPositiva(pageDelay, "scraping.page-delay-ms");
         if (descontoMinimo < 0 || descontoMinimo > 100) {
             throw new IllegalArgumentException("scraping.desconto-minimo deve estar entre 0 e 100");
         }
@@ -66,9 +59,6 @@ public record ScraperConfig(
     static ScraperConfig carregar(Map<String, String> ambiente) {
         Properties properties = carregarProperties(caminhoConfiguracao(ambiente));
 
-        String categoriaPadrao = valor(
-                ambiente, properties, "SCRAPER_CATEGORIA_PADRAO", "scraping.categoria-padrao", "informatica");
-
         return new ScraperConfig(
                 uriObrigatoria(valor(ambiente, properties,
                         "SCRAPER_VPS_ENDPOINT_URL", "ingestao.endpoint-url", null)),
@@ -76,17 +66,15 @@ public record ScraperConfig(
                 parseBoolean(valor(ambiente, properties, "SCRAPER_HEADLESS", "scraping.headless", "true"),
                         "scraping.headless"),
                 valor(ambiente, properties, "SCRAPER_ML_BASE_URL_TEMPLATE", "scraping.base-url-template",
-                        "https://lista.mercadolivre.com.br/%s/_DisplayType_LF_NoIndex_True"),
-                categoriaPadrao,
-                parseLista(valor(ambiente, properties, "SCRAPER_CATEGORIAS", "scraping.categorias", "")),
+                        "https://www.mercadolivre.com.br/ofertas?page=%d"),
                 parseInt(valor(ambiente, properties,
-                        "SCRAPER_MAX_POR_CATEGORIA", "scraping.max-por-categoria", "20"),
-                        "scraping.max-por-categoria"),
+                        "SCRAPER_MAX_PRODUTOS", "scraping.max-produtos", "20"),
+                        "scraping.max-produtos"),
                 parseInt(valor(ambiente, properties,
-                        "SCRAPER_MAX_SCROLLS", "scraping.max-scrolls", "10"), "scraping.max-scrolls"),
+                        "SCRAPER_MAX_PAGINAS", "scraping.max-paginas", "10"), "scraping.max-paginas"),
                 Duration.ofMillis(parseLong(valor(ambiente, properties,
-                        "SCRAPER_SCROLL_DELAY_MS", "scraping.scroll-delay-ms", "1000"),
-                        "scraping.scroll-delay-ms")),
+                        "SCRAPER_PAGE_DELAY_MS", "scraping.page-delay-ms", "1000"),
+                        "scraping.page-delay-ms")),
                 parseInt(valor(ambiente, properties,
                         "SCRAPER_DESCONTO_MINIMO", "scraping.desconto-minimo", "10"),
                         "scraping.desconto-minimo"),
@@ -148,17 +136,6 @@ public record ScraperConfig(
         }
     }
 
-    private static List<String> parseLista(String valor) {
-        if (valor == null || valor.isBlank()) {
-            return List.of();
-        }
-        return Arrays.stream(valor.split(","))
-                .map(String::trim)
-                .filter(item -> !item.isEmpty())
-                .distinct()
-                .toList();
-    }
-
     private static boolean parseBoolean(String valor, String nome) {
         if ("true".equalsIgnoreCase(valor)) return true;
         if ("false".equalsIgnoreCase(valor)) return false;
@@ -207,12 +184,6 @@ public record ScraperConfig(
     private static void exigirPositivo(int valor, String nome) {
         if (valor <= 0) {
             throw new IllegalArgumentException(nome + " deve ser maior que zero");
-        }
-    }
-
-    private static void exigirNaoNegativo(int valor, String nome) {
-        if (valor < 0) {
-            throw new IllegalArgumentException(nome + " nao pode ser negativo");
         }
     }
 
