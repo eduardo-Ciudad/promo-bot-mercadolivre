@@ -1,5 +1,6 @@
 package com.eduar.promobot.domain.model;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.util.UUID;
 
@@ -10,6 +11,8 @@ public record MensagemSaida(
         String texto,
         URI imagemUrl,
         URI link,
-        String titulo
+        String titulo,
+        BigDecimal precoOriginal,
+        BigDecimal precoPromocional
 ) {
 }
