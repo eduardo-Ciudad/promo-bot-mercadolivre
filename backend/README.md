@@ -1,173 +1,219 @@
-# PromoBot
+# 🤖 PromoBot — Monitoramento e Distribuição de Promoções
 
-Bot de IA que monitora promoções no Mercado Livre, gera legendas atrativas com IA generativa (Gemini) e distribui as ofertas automaticamente via WhatsApp.
+![Java](https://img.shields.io/badge/Java-17-orange?style=flat-square&logo=openjdk)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.1-green?style=flat-square&logo=springboot)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-blue?style=flat-square&logo=postgresql)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-orange?style=flat-square&logo=rabbitmq)
+![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 
-**Autor:** Eduardo Ciudad ([@ciudad_dev](https://instagram.com/ciudad_dev))
+Bot que monitora promoções no Mercado Livre, enriquece cada oferta com uma legenda gerada por IA (Gemini) e distribui automaticamente para um grupo do Telegram — rodando 24/7 em VPS própria, com scraping executado localmente para contornar bloqueio de IP de datacenter.
+
 **Domínio:** [promobotciudad.duckdns.org](https://promobotciudad.duckdns.org)
 
 ---
 
-## Sobre o projeto
+## 🧩 Como o projeto é dividido
 
-O PromoBot busca promoções em marketplaces (inicialmente Mercado Livre), enriquece cada oferta com uma legenda gerada por IA (não um template fixo) e distribui para os usuários via WhatsApp — com planos futuros para outros canais como Telegram.
-
-**Fluxo do pipeline:**
+O repositório é um monorepo com dois projetos Java **independentes**, sem multi-module Maven:
 
 ```
-Scheduler (periódico)
-    ↓
-Buscar promoções (Mercado Livre)
-    ↓
-Filtrar (desconto mínimo, deduplicação)
-    ↓
-Gerar legenda com IA (Gemini)
-    ↓
-Enviar via WhatsApp
+promo-bot-mercadolivre/
+├── backend/         # Spring Boot — roda na VPS
+└── scraper-local/   # Java puro (sem Spring) — roda na máquina do usuário
 ```
 
-### Diferenciais
+### Por que separar o scraper do backend?
 
-- **Legendas geradas por IA** — cada oferta recebe uma descrição única, não um texto engessado
-- **Links de afiliado do Mercado Livre** — monetização real via Programa de Afiliados
-- **Arquitetura hexagonal** — trocar marketplace, provedor de IA ou canal de distribuição não exige reescrever o núcleo do sistema
-- **Operação 24/7** — roda em VPS própria, via Docker
+O Mercado Livre retorna **403 Forbidden via CloudFront** para requisições feitas a partir de IPs de datacenter (confirmado em testes diretos na VPS) — scraping só funciona de IP residencial. A solução foi extrair o scraper para um processo independente, que roda no PC do usuário e envia as promoções encontradas para a VPS via HTTP autenticado. Postgres e RabbitMQ nunca ficam expostos à internet.
 
 ---
 
-## Stack tecnológica
+## 🔄 Pipeline completo
 
-| Camada | Tecnologia |
-|---|---|
-| Linguagem | Java 17 |
-| Framework | Spring Boot 4.1.0 |
-| Banco de dados | PostgreSQL 16 (Alpine) |
-| Migrations | Flyway |
-| Browser automation | Playwright (Java) |
-| Containerização | Docker + Docker Compose |
-| Deploy | VPS (Hostinger) |
-| Proxy reverso | Nginx + Certbot (SSL/HTTPS) |
-| IA | Google Gemini |
-| Mensageria | WhatsApp Cloud API (Meta) |
-| Build | Maven |
+```
+scraper-local (PC do usuário, janela 07h-20h, a cada 30 min)
+    ↓ HTTPS + API key
+POST /api/promocoes/ingestao (backend na VPS)
+    ↓ deduplicação por idExterno
+RabbitMQ (fila.enriquecimento.promocao)
+    ↓
+Gemini (gera legenda única por oferta — fallback genérico se falhar/expirar)
+    ↓
+Outbox (mensagem_outbox — lease/timeout de 120s, backoff, max. tentativas)
+    ↓
+Telegram Bot API
+    ↓
+Grupo do Telegram
+```
+
+Todo o fluxo roda automaticamente via schedulers — sem intervenção manual — desde o scraping até a entrega da mensagem no grupo.
 
 ---
 
-## Arquitetura
+## 🚀 Tecnologias
 
-O projeto segue **arquitetura hexagonal** (Ports and Adapters), separando regras de negócio (domínio) de integrações externas (marketplace, IA, canal de mensageria). A justificativa: o PromoBot depende de múltiplas integrações externas que podem falhar ou ser substituídas independentemente uma da outra.
+### Backend (VPS)
+- **Java 17** + **Spring Boot 4.1** — arquitetura hexagonal (`domain` / `application` / `adapter in-out`)
+- **PostgreSQL 16** + **Flyway**
+- **RabbitMQ** — fila de enriquecimento assíncrono das promoções
+- **Google Gemini** (`gemini-3.5-flash-lite`) — geração de legenda por IA
+- **Telegram Bot API** — canal de distribuição ativo
+- **Docker + Docker Compose** — 3 serviços (db, rabbitmq, app) com healthchecks e limites de memória
+- **Nginx + Certbot** — proxy reverso com SSL/HTTPS
 
-```
-com.eduar.promobot/
-├── domain/
-│   ├── model/          → Promocao, Produto, StatusPromocao, CanalDistribuicao
-│   ├── port/
-│   │   ├── in/          → casos de uso (interfaces)
-│   │   └── out/         → PromocaoRepository, BuscadorDePromocoes,
-│   │                       GeradorDeDescricao, EnviadorDeMensagem
-│   ├── exception/       → TransicaoInvalidaException
-│   └── service/         → implementação dos casos de uso
-│
-├── adapter/
-│   ├── in/
-│   │   ├── webhook/      → WhatsAppWebhookController
-│   │   └── scheduler/    → orquestração periódica
-│   └── out/
-│       ├── mercadolivre/ → MercadoLivreAdapter (busca via scraping)
-│       ├── ia/            → GeminiAdapter
-│       ├── whatsapp/      → WhatsAppCloudApiAdapter
-│       └── persistence/   → PromocaoJpaAdapter
-│
-└── config/               → PlaywrightConfig, WhatsAppProperties, JpaAuditingConfig
-```
-
-Cada port de saída é uma interface no domínio; a implementação concreta (o adapter) fica isolada e substituível sem impactar o restante do sistema.
-
-### Por que scraping em vez de API para o Mercado Livre
-
-Após investigação extensa, não foi encontrado um endpoint oficial documentado que entregue "promoções em geral" por categoria — `/sites/MLB/search` está bloqueado para esta aplicação, e `/products/search` retorna produtos de catálogo, não anúncios com preço ativo. A estratégia adotada (validada manualmente antes de implementada) é abrir páginas de listagem por categoria num navegador real (Playwright) e extrair os cards renderizados. Essa decisão fica isolada no `MercadoLivreAdapter` — se uma API oficial melhor surgir no futuro, só esse adapter muda.
+### Scraper local (máquina do usuário)
+- **Java 17 puro** — sem Spring Boot, decisão consciente de simplicidade
+- **Playwright (Java) 1.48.0** — automação de navegador
+- **`java.net.http.HttpClient`** nativo — envio das promoções à VPS
+- **`ScheduledExecutorService`** nativo — agendamento com reagendamento após cada ciclo (evita sobreposição e lida com virada de dia/horário de verão)
+- **Maven Shade Plugin** — empacotado como JAR executável único
+- Sem Spring, Lombok ou biblioteca de JSON — serializador JSON próprio para os 7 campos do contrato de ingestão
+- Logging via `java.util.logging`
 
 ---
 
-## Rodando localmente
+## 📦 Funcionalidades
 
-### Pré-requisitos
+- Scraping do Mercado Livre (página de ofertas, com paginação) com filtro por desconto mínimo e deduplicação por `idExterno`
+- Ingestão autenticada por API key (`X-Ingestao-Api-Key`, comparação via `MessageDigest.isEqual`) na VPS
+- Enriquecimento assíncrono via RabbitMQ + Gemini, com fallback de descrição genérica em caso de falha/timeout
+- Padrão Outbox para envio de mensagens: lease com timeout, backoff exponencial e limite de tentativas — evita duplicidade e mensagens perdidas
+- Entrega no Telegram via bot dedicado, com suporte a webhook e deduplicação de updates processados (`telegram_update_processado`)
+- Suporte legado a WhatsApp Cloud API (canal original do projeto, hoje substituído pelo Telegram como canal ativo)
+- Scheduler do scraper local com janela de horário configurável (07h-20h, America/Sao_Paulo) e modo `--once` para execução manual/teste
+- Configuração híbrida em ambos os projetos: variável de ambiente → arquivo de properties → valor padrão
 
-- Java 17
-- Maven
-- Docker e Docker Compose
-- Conta e aplicação configuradas no [Mercado Livre Developers](https://developers.mercadolivre.com.br)
-- Conta e aplicação configuradas no [Meta for Developers](https://developers.facebook.com) (WhatsApp Cloud API)
-- Chave de API do Google Gemini
+---
 
-### Variáveis de ambiente
+## 🗂️ Estrutura do projeto
 
-Crie um arquivo `.env` na pasta `backend/` (mesmo nível do `docker-compose.yml`):
+### `backend/`
 
-```env
-DATABASE_USERNAME=
-DATABASE_PASSWORD=
-
-WHATSAPP_ACCESS_TOKEN=
-WHATSAPP_PHONE_NUMBER_ID=
-WHATSAPP_BUSINESS_ACCOUNT_ID=
-WHATSAPP_WEBHOOK_VERIFY_TOKEN=
-
-MERCADOLIVRE_APP_ID=
-MERCADOLIVRE_SECRET_KEY=
-
-GEMINI_API_KEY=
+```
+src/main/java/com/eduar/promobot
+├── domain
+│   ├── model              # Promocao, DestinoDistribuicao, MensagemOutbox...
+│   ├── port/out            # Interfaces (portas de saída)
+│   └── exception
+├── application              # Casos de uso (ex: EnviarMensagensPendentesUseCase)
+├── config                    # Beans de configuração (RabbitMQ, Gemini, Telegram...)
+└── adapter
+    ├── in
+    │   ├── web                 # IngestaoPromocaoController, ScrapingController
+    │   ├── webhook               # TelegramWebhookController, WhatsAppWebhookController
+    │   ├── messaging              # Consumers do RabbitMQ
+    │   └── scheduler                # Schedulers (outbox, scraping)
+    └── out
+        ├── ia                       # Integração com Gemini
+        ├── mercadolivre               # Scraper embutido (uso original, pré scraper-local)
+        ├── messaging                   # Publisher RabbitMQ
+        ├── persistence                   # Repositórios JPA
+        └── telegram                       # Cliente da Telegram Bot API
 ```
 
-> `DATABASE_URL` não fica no `.env` — é definida diretamente no `docker-compose.yml`.
+### `scraper-local/`
 
-### Subindo com Docker Compose
+```
+src/main/java/com/eduar/promobot/scraperlocal
+├── config          # ScraperConfig (validação de todas as properties)
+├── model           # PromocaoEncontrada, CriteriosBusca (records)
+├── scraping        # MercadoLivreScraper, OfertaCard, OfertaExtractionScripts
+├── ingestao        # IngestaoClient, JsonSerializer, ResultadoIngestao
+├── scheduling      # ScrapingScheduler
+├── application     # ScrapingJob (orquestra scraping + envio)
+└── Main            # Composition root — monta as dependências manualmente
+```
+
+---
+
+## ⚙️ Como rodar
+
+### Backend (Docker, recomendado)
 
 ```bash
 cd backend
-docker compose up -d --build
 ```
 
-A aplicação sobe na porta `8082` (mapeada para `8080` internamente).
-
-### Rodando via Maven (desenvolvimento)
+Crie um `.env` com as variáveis necessárias (banco, RabbitMQ, Gemini, Telegram, API key de ingestão — veja `application.properties` para a lista completa):
 
 ```bash
-cd backend
-./mvnw spring-boot:run
+docker compose up --build
 ```
 
-Na primeira execução local, o Playwright baixa os navegadores necessários automaticamente (Chromium, Firefox, WebKit) — isso acontece uma única vez.
+As migrações Flyway rodam automaticamente. A aplicação roda na porta configurada no `docker-compose.yml`.
+
+### Scraper local
+
+**Pré-requisitos:** Java 17.
+
+```bash
+cd scraper-local
+cp config/scraper.properties.example config/scraper.properties
+# edite scraper.properties com a URL de ingestão da VPS
+# defina SCRAPER_INGESTAO_API_KEY como variável de ambiente (nunca em arquivo)
+
+./mvnw package
+java -jar target/scraper-local-0.0.1-SNAPSHOT.jar --once   # execução única, para teste
+java -jar target/scraper-local-0.0.1-SNAPSHOT.jar           # modo scheduler contínuo
+```
+
+> ⚠️ `scraping.headless=true` é necessário para rodar despercebido, mas pode disparar detecção anti-bot do Mercado Livre dependendo da configuração do navegador — validar localmente antes de rodar em produção.
+
+### Testes
+
+```bash
+# backend
+cd backend && ./mvnw test
+
+# scraper-local
+cd scraper-local && ./mvnw test
+```
 
 ---
 
-## Status atual
+## 📡 Endpoints principais (backend)
 
-| Componente | Status |
-|---|---|
-| Infraestrutura (VPS, Nginx, SSL, Docker) | ✅ Funcionando |
-| Domínio (`Promocao`, ports, exceções) | ✅ Implementado |
-| Webhook WhatsApp (recebimento) | ✅ Verificado |
-| `MercadoLivreAdapter` (scraping) | ✅ Implementado |
-| `GeminiAdapter` | ⏳ Planejado |
-| `WhatsAppCloudApiAdapter` (envio) | ⏳ Planejado — bloqueado até configuração de produção na Meta |
-| `PromocaoJpaAdapter` | ⏳ Planejado |
-| Use Cases / Services | ⏳ Planejado |
-| Scheduler | ⏳ Planejado |
-| Testes automatizados | ⏳ Planejado |
+| Método | Rota | Descrição | Acesso |
+|--------|------|-----------|--------|
+| POST | `/api/promocoes/ingestao` | Recebe promoções enviadas pelo scraper local | API key (header `X-Ingestao-Api-Key`) |
+| POST | `/admin/scraping/executar` | Dispara o scraper embutido no backend manualmente | Admin |
+| POST | `/webhook/telegram` | Webhook de updates do Telegram | Telegram |
+| GET / POST | `/webhook/whatsapp` | Webhook legado do WhatsApp Cloud API | Meta |
 
 ---
 
-## Roadmap
+## 🧪 Testes
 
-1. `PromocaoJpaAdapter` — persistência via Spring Data JPA
-2. `GeminiAdapter` — geração de legenda via IA
-3. Use Cases / Services — orquestração do pipeline completo
-4. Scheduler — execução periódica automatizada
-5. `WhatsAppCloudApiAdapter` — envio de mensagens (após configuração de produção na Meta)
-6. Expansão para múltiplas categorias e, futuramente, outros canais (Telegram)
+### Backend
+
+| Classe de teste | Cobertura |
+|----------------|-----------|
+| `IngestaoPromocaoServiceTest` / `IngestaoPromocaoControllerTest` | Ingestão de promoções vindas do scraper local |
+| `EnviarMensagensPendentesUseCaseRateLimitTest` | Rate limiting no envio de mensagens pendentes |
+| `EnviarMensagensPendentesUseCaseUrlInvalidaTest` | Tratamento de URL inválida |
+| `MensagemOutboxConcurrencyTest` / `MensagemOutboxRepositoryAdapterLeaseTest` | Concorrência e lease do padrão Outbox |
+| `TelegramBotAdapterTest` / `TelegramUpdateProcessorTest` / `TelegramWebhookControllerTest` | Integração e webhook do Telegram |
+
+### Scraper local
+
+| Classe de teste | Cobertura |
+|----------------|-----------|
+| `ScrapingJobTest` | Consolidação de resultados, continuidade após falha isolada de envio |
+| `ScrapingSchedulerTest` | Agendamento e janela de horário |
+| `MercadoLivreScraperTest` / `OfertaExtractionScriptsTest` | Extração de ofertas da página do Mercado Livre |
+| `IngestaoClientTest` | Envio HTTP autenticado à VPS |
 
 ---
 
-## Licença
+## 🔜 Próximos passos
 
-*A definir.*
+- [ ] Incluir preço (De/Por) na mensagem enviada ao Telegram, hoje só título + descrição + link
+- [ ] Remover menção residual ao WhatsApp no prompt de geração de legenda (Gemini)
+- [ ] Throttling por `chat_id` no scheduler do outbox (pausado, ainda não implementado)
+- [ ] Resolver detecção anti-bot em modo `headless=true` no scraper local sem depender de janela visível
+
+---
+
+## 👨‍💻 Autor
+
+Desenvolvido por [Eduardo](https://github.com/eduardo-Ciudad)
