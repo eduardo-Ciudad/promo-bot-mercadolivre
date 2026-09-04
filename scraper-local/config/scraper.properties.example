@@ -3,10 +3,14 @@
 ingestao.endpoint-url=
 
 scraping.headless=true
-# A pagina de ofertas usa paginacao classica; %d sera substituido pelo numero da pagina.
-scraping.base-url-template=https://www.mercadolivre.com.br/ofertas?page=%d
+# A pagina de ofertas usa paginacao classica; %s e %d recebem categoria e numero da pagina.
+scraping.base-url-template=https://www.mercadolivre.com.br/ofertas?category=%s&page=%d
+scraping.categoria-id=MLB1648
 scraping.max-produtos=20
 scraping.max-paginas=10
+busca.alvo-minimo-novas=5
+busca.alvo-maximo-novas=8
+busca.max-paginas-seguranca-por-ciclo=12
 # Pausa de estabilidade entre navegacoes de pagina.
 scraping.page-delay-ms=1000
 scraping.desconto-minimo=10
@@ -14,7 +18,7 @@ scraping.timeout-segundos=30
 
 scheduler.hora-inicio=07:00
 scheduler.hora-fim=20:00
-scheduler.intervalo-minutos=30
+scheduler.intervalo-minutos=40
 scheduler.timezone=America/Sao_Paulo
 scheduler.executar-ao-iniciar=false
 

@@ -27,10 +27,11 @@ class MercadoLivreScraperTest {
                 });
 
         MercadoLivreScraper.extrairPagina(
-                page, 2, "https://www.mercadolivre.com.br/ofertas?page=%d", Duration.ofMillis(750));
+                page, 2, "https://www.mercadolivre.com.br/ofertas?category=%s&page=%d",
+                "MLB1648", Duration.ofMillis(750));
 
         assertEquals(List.of(
-                "navigate:https://www.mercadolivre.com.br/ofertas?page=2",
+                "navigate:https://www.mercadolivre.com.br/ofertas?category=MLB1648&page=2",
                 "waitForSelector:.poly-card",
                 "waitForTimeout:750.0",
                 "evaluate:" + OfertaExtractionScripts.EXTRAIR_CARDS), chamadas);

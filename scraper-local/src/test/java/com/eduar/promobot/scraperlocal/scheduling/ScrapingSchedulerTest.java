@@ -34,7 +34,7 @@ class ScrapingSchedulerTest {
     @Test
     void aguardaIntervaloDentroDaJanelaSemExecucaoImediata() {
         assertProxima("2026-08-29T14:15:00Z", false,
-                "2026-08-29T11:45:00-03:00[America/Sao_Paulo]", SAO_PAULO);
+                "2026-08-29T11:55:00-03:00[America/Sao_Paulo]", SAO_PAULO);
     }
 
     @Test
@@ -77,15 +77,19 @@ class ScrapingSchedulerTest {
                 URI.create("http://127.0.0.1/api/promocoes/ingestao"),
                 "chave-teste",
                 true,
-                "https://www.mercadolivre.com.br/ofertas?page=%d",
+                "https://www.mercadolivre.com.br/ofertas?category=%s&page=%d",
                 20,
                 10,
+                5,
+                8,
+                12,
+                "MLB1648",
                 Duration.ofSeconds(1),
                 10,
                 Duration.ofSeconds(30),
                 LocalTime.of(7, 0),
                 LocalTime.of(20, 0),
-                Duration.ofMinutes(30),
+                Duration.ofMinutes(40),
                 timezone,
                 false);
     }

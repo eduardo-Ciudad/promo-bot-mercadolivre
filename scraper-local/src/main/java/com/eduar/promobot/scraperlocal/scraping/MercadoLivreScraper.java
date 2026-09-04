@@ -50,7 +50,7 @@ public final class MercadoLivreScraper {
 
             List<Map<String, Object>> cardsBrutos = coletarCards(
                     config.maxProdutos(), config.maxPaginas(), numeroPagina -> extrairPagina(
-                            page, numeroPagina, config.baseUrlTemplate(), config.pageDelay()));
+                            page, numeroPagina, config.baseUrlTemplate(), config.categoriaId(), config.pageDelay()));
             return mapearParaPromocoes(cardsBrutos, CATEGORIA_OFERTAS, percentualDescontoMinimo);
         } catch (Exception e) {
             LOG.log(Level.SEVERE, "Falha ao buscar ofertas", e);
@@ -60,8 +60,8 @@ public final class MercadoLivreScraper {
 
     @SuppressWarnings("unchecked")
     static List<Map<String, Object>> extrairPagina(
-            Page page, int numeroPagina, String baseUrlTemplate, Duration pageDelay) {
-        page.navigate(baseUrlTemplate.formatted(numeroPagina));
+            Page page, int numeroPagina, String baseUrlTemplate, String categoriaId, Duration pageDelay) {
+        page.navigate(baseUrlTemplate.formatted(categoriaId, numeroPagina));
         page.waitForSelector(".poly-card");
         page.waitForTimeout(pageDelay.toMillis());
         return (List<Map<String, Object>>) page.evaluate(OfertaExtractionScripts.EXTRAIR_CARDS);
