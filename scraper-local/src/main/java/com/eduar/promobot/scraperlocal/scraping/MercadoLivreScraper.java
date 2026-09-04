@@ -40,21 +40,37 @@ public final class MercadoLivreScraper {
 
     public List<PromocaoEncontrada> buscarPromocoes(CriteriosBusca criterios) {
         Objects.requireNonNull(criterios, "criterios e obrigatorio");
-        return buscarOfertas(criterios.percentualDescontoMinimo());
+        List<PromocaoEncontrada> acumuladas = new ArrayList<>();
+        try (SessaoBusca sessao = iniciarBusca(criterios)) {
+            for (int numeroPagina = 1;
+                 numeroPagina <= config.maxPaginas() && acumuladas.size() < config.maxProdutos();
+                 numeroPagina++) {
+                PaginaPromocoes pagina = sessao.buscarPagina(numeroPagina);
+                if (pagina.semCards()) {
+                    break;
+                }
+                for (PromocaoEncontrada promocao : pagina.promocoes()) {
+                    acumuladas.add(promocao);
+                    if (acumuladas.size() >= config.maxProdutos()) {
+                        break;
+                    }
+                }
+            }
+        }
+        return List.copyOf(acumuladas);
     }
 
-    private List<PromocaoEncontrada> buscarOfertas(int percentualDescontoMinimo) {
-        try (BrowserContext context = browser.newContext(); Page page = context.newPage()) {
+    public SessaoBusca iniciarBusca(CriteriosBusca criterios) {
+        Objects.requireNonNull(criterios, "criterios e obrigatorio");
+        BrowserContext context = browser.newContext();
+        try {
+            Page page = context.newPage();
             page.setDefaultTimeout(config.timeout().toMillis());
             page.setDefaultNavigationTimeout(config.timeout().toMillis());
-
-            List<Map<String, Object>> cardsBrutos = coletarCards(
-                    config.maxProdutos(), config.maxPaginas(), numeroPagina -> extrairPagina(
-                            page, numeroPagina, config.baseUrlTemplate(), config.categoriaId(), config.pageDelay()));
-            return mapearParaPromocoes(cardsBrutos, CATEGORIA_OFERTAS, percentualDescontoMinimo);
-        } catch (Exception e) {
-            LOG.log(Level.SEVERE, "Falha ao buscar ofertas", e);
-            return List.of();
+            return new SessaoMercadoLivre(context, page, criterios.percentualDescontoMinimo());
+        } catch (RuntimeException e) {
+            context.close();
+            throw e;
         }
     }
 
@@ -62,7 +78,6 @@ public final class MercadoLivreScraper {
     static List<Map<String, Object>> extrairPagina(
             Page page, int numeroPagina, String baseUrlTemplate, String categoriaId, Duration pageDelay) {
         page.navigate(baseUrlTemplate.formatted(categoriaId, numeroPagina));
-        page.waitForSelector(".poly-card");
         page.waitForTimeout(pageDelay.toMillis());
         return (List<Map<String, Object>>) page.evaluate(OfertaExtractionScripts.EXTRAIR_CARDS);
     }
@@ -108,9 +123,7 @@ public final class MercadoLivreScraper {
                                                           String categoria,
                                                           int percentualDescontoMinimo) {
         List<PromocaoEncontrada> promocoes = new ArrayList<>();
-        int quantidadeParaAnalisar = Math.min(cardsBrutos.size(), config.maxProdutos());
-        for (int indice = 0; indice < quantidadeParaAnalisar; indice++) {
-            Map<String, Object> cardBruto = cardsBrutos.get(indice);
+        for (Map<String, Object> cardBruto : cardsBrutos) {
             OfertaCard card = new OfertaCard(
                     (String) cardBruto.get("titulo"), (String) cardBruto.get("url"),
                     (String) cardBruto.get("imagemUrl"), (String) cardBruto.get("precoAtualLabel"),
@@ -145,6 +158,54 @@ public final class MercadoLivreScraper {
             }
         }
         return List.copyOf(promocoes);
+    }
+
+    private final class SessaoMercadoLivre implements SessaoBusca {
+        private final BrowserContext context;
+        private final Page page;
+        private final int percentualDescontoMinimo;
+        private final Set<String> idsVistos = new HashSet<>();
+        private boolean fechada;
+
+        private SessaoMercadoLivre(BrowserContext context, Page page, int percentualDescontoMinimo) {
+            this.context = context;
+            this.page = page;
+            this.percentualDescontoMinimo = percentualDescontoMinimo;
+        }
+
+        @Override
+        public PaginaPromocoes buscarPagina(int numeroPagina) {
+            if (fechada) {
+                throw new IllegalStateException("A sessao de busca ja foi fechada");
+            }
+            if (numeroPagina <= 0) {
+                throw new IllegalArgumentException("numeroPagina deve ser maior que zero");
+            }
+
+            List<Map<String, Object>> cardsBrutos = Objects.requireNonNull(
+                    extrairPagina(page, numeroPagina, config.baseUrlTemplate(),
+                            config.categoriaId(), config.pageDelay()),
+                    "A extracao da pagina retornou uma lista nula");
+            List<Map<String, Object>> cardsNaoVistos = new ArrayList<>();
+            for (Map<String, Object> card : cardsBrutos) {
+                Object url = card.get("url");
+                String idExterno = url instanceof String ? extrairIdExterno((String) url) : null;
+                if (idExterno != null && idsVistos.add(idExterno)) {
+                    cardsNaoVistos.add(card);
+                }
+            }
+
+            List<PromocaoEncontrada> promocoes = mapearParaPromocoes(
+                    cardsNaoVistos, CATEGORIA_OFERTAS, percentualDescontoMinimo);
+            return new PaginaPromocoes(numeroPagina, cardsBrutos.size(), promocoes);
+        }
+
+        @Override
+        public void close() {
+            if (fechada) return;
+            fechada = true;
+            context.close();
+        }
     }
 
     static String extrairIdExterno(String url) {
