@@ -84,63 +84,6 @@ class MercadoLivreScraperTest {
     }
 
     @Test
-    void buscarPromocoesPermaneceCompativelEContinuaAposPaginaSemItensAproveitaveis() {
-        Browser browser = browserComPaginas(List.of(
-                List.of(cardValido("MLB1")),
-                List.of(cardValido("MLB1"), card("MLB2")),
-                List.of(cardValido("MLB3")),
-                List.of()), new AtomicBoolean(), false);
-        MercadoLivreScraper scraper = new MercadoLivreScraper(browser, config());
-
-        List<PromocaoEncontrada> resultado = scraper.buscarPromocoes(new CriteriosBusca(10));
-
-        assertEquals(List.of("MLB1", "MLB3"), idsPromocoes(resultado));
-    }
-
-    @Test
-    void acumulaPaginasDeduplicaPorIdEParaQuandoNaoHaCardsNovos() {
-        List<Integer> paginasVisitadas = new ArrayList<>();
-        Map<Integer, List<Map<String, Object>>> paginas = Map.of(
-                1, List.of(card("MLB100"), card("MLB200")),
-                2, List.of(card("MLB200"), card("MLB300")),
-                3, List.of(card("MLB100"), card("MLB300")),
-                4, List.of(card("MLB400")));
-
-        List<Map<String, Object>> resultado = MercadoLivreScraper.coletarCards(10, 10, pagina -> {
-            paginasVisitadas.add(pagina);
-            return paginas.getOrDefault(pagina, List.of());
-        });
-
-        assertEquals(List.of(1, 2, 3), paginasVisitadas);
-        assertEquals(List.of("MLB100", "MLB200", "MLB300"), ids(resultado));
-    }
-
-    @Test
-    void paraAoAtingirMaximoDeProdutos() {
-        List<Integer> paginasVisitadas = new ArrayList<>();
-
-        List<Map<String, Object>> resultado = MercadoLivreScraper.coletarCards(3, 10, pagina -> {
-            paginasVisitadas.add(pagina);
-            return pagina == 1
-                    ? List.of(card("MLB1"), card("MLB2"))
-                    : List.of(card("MLB3"), card("MLB4"));
-        });
-
-        assertEquals(List.of(1, 2), paginasVisitadas);
-        assertEquals(List.of("MLB1", "MLB2", "MLB3"), ids(resultado));
-    }
-
-    @Test
-    void respeitaMaximoDePaginasEIgnoraCardsSemIdMlb() {
-        List<Map<String, Object>> resultado = MercadoLivreScraper.coletarCards(10, 2, pagina ->
-                pagina == 1
-                        ? List.of(card("MLB10"), Map.of("url", "https://example.com/produto"))
-                        : List.of(card("MLB20")));
-
-        assertEquals(List.of("MLB10", "MLB20"), ids(resultado));
-    }
-
-    @Test
     void extraiIdExternoNosFormatosComESemHifen() {
         assertEquals("MLB123456", MercadoLivreScraper.extrairIdExterno(
                 "https://produto.mercadolivre.com.br/MLB-123456-produto"));
@@ -169,12 +112,6 @@ class MercadoLivreScraperTest {
                 "precoAtualLabel", "80 reais",
                 "precoAnteriorLabel", "100 reais",
                 "descontoLabel", "20% OFF");
-    }
-
-    private List<String> ids(List<Map<String, Object>> cards) {
-        return cards.stream()
-                .map(card -> MercadoLivreScraper.extrairIdExterno((String) card.get("url")))
-                .toList();
     }
 
     private List<String> idsPromocoes(List<PromocaoEncontrada> promocoes) {
@@ -215,8 +152,6 @@ class MercadoLivreScraperTest {
                 "chave-teste",
                 true,
                 "https://www.mercadolivre.com.br/ofertas?category=%s&page=%d",
-                20,
-                10,
                 5,
                 8,
                 12,

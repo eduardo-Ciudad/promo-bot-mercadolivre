@@ -6,8 +6,6 @@ scraping.headless=true
 # A pagina de ofertas usa paginacao classica; %s e %d recebem categoria e numero da pagina.
 scraping.base-url-template=https://www.mercadolivre.com.br/ofertas?category=%s&page=%d
 scraping.categoria-id=MLB1648
-scraping.max-produtos=20
-scraping.max-paginas=10
 busca.alvo-minimo-novas=5
 busca.alvo-maximo-novas=8
 busca.max-paginas-seguranca-por-ciclo=12

@@ -78,8 +78,6 @@ class ScrapingSchedulerTest {
                 "chave-teste",
                 true,
                 "https://www.mercadolivre.com.br/ofertas?category=%s&page=%d",
-                20,
-                10,
                 5,
                 8,
                 12,

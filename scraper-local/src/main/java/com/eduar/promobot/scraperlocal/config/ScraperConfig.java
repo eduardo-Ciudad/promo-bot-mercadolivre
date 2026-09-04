@@ -17,8 +17,6 @@ public record ScraperConfig(
         String ingestaoApiKey,
         boolean headless,
         String baseUrlTemplate,
-        int maxProdutos,
-        int maxPaginas,
         int alvoMinimoNovas,
         int alvoMaximoNovas,
         int maxPaginasSegurancaPorCiclo,
@@ -45,8 +43,6 @@ public record ScraperConfig(
         if (!baseUrlTemplate.contains("%s") || !baseUrlTemplate.contains("%d")) {
             throw new IllegalArgumentException("scraping.base-url-template deve conter %s e %d");
         }
-        exigirPositivo(maxProdutos, "scraping.max-produtos");
-        exigirPositivo(maxPaginas, "scraping.max-paginas");
         exigirPositivo(alvoMinimoNovas, "busca.alvo-minimo-novas");
         exigirPositivo(alvoMaximoNovas, "busca.alvo-maximo-novas");
         if (alvoMinimoNovas > alvoMaximoNovas) {
@@ -84,11 +80,6 @@ public record ScraperConfig(
                         "scraping.headless"),
                 valor(ambiente, properties, "SCRAPER_ML_BASE_URL_TEMPLATE", "scraping.base-url-template",
                         "https://www.mercadolivre.com.br/ofertas?category=%s&page=%d"),
-                parseInt(valor(ambiente, properties,
-                        "SCRAPER_MAX_PRODUTOS", "scraping.max-produtos", "20"),
-                        "scraping.max-produtos"),
-                parseInt(valor(ambiente, properties,
-                        "SCRAPER_MAX_PAGINAS", "scraping.max-paginas", "10"), "scraping.max-paginas"),
                 parseInt(valor(ambiente, properties,
                         "SCRAPER_ALVO_MINIMO_NOVAS", "busca.alvo-minimo-novas", "5"),
                         "busca.alvo-minimo-novas"),

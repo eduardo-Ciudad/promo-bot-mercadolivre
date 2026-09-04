@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -38,28 +37,6 @@ public final class MercadoLivreScraper {
         this.config = Objects.requireNonNull(config, "config e obrigatoria");
     }
 
-    public List<PromocaoEncontrada> buscarPromocoes(CriteriosBusca criterios) {
-        Objects.requireNonNull(criterios, "criterios e obrigatorio");
-        List<PromocaoEncontrada> acumuladas = new ArrayList<>();
-        try (SessaoBusca sessao = iniciarBusca(criterios)) {
-            for (int numeroPagina = 1;
-                 numeroPagina <= config.maxPaginas() && acumuladas.size() < config.maxProdutos();
-                 numeroPagina++) {
-                PaginaPromocoes pagina = sessao.buscarPagina(numeroPagina);
-                if (pagina.semCards()) {
-                    break;
-                }
-                for (PromocaoEncontrada promocao : pagina.promocoes()) {
-                    acumuladas.add(promocao);
-                    if (acumuladas.size() >= config.maxProdutos()) {
-                        break;
-                    }
-                }
-            }
-        }
-        return List.copyOf(acumuladas);
-    }
-
     public SessaoBusca iniciarBusca(CriteriosBusca criterios) {
         Objects.requireNonNull(criterios, "criterios e obrigatorio");
         BrowserContext context = browser.newContext();
@@ -80,43 +57,6 @@ public final class MercadoLivreScraper {
         page.navigate(baseUrlTemplate.formatted(categoriaId, numeroPagina));
         page.waitForTimeout(pageDelay.toMillis());
         return (List<Map<String, Object>>) page.evaluate(OfertaExtractionScripts.EXTRAIR_CARDS);
-    }
-
-    static List<Map<String, Object>> coletarCards(
-            int maxProdutos,
-            int maxPaginas,
-            Function<Integer, List<Map<String, Object>>> extrairPagina) {
-        Objects.requireNonNull(extrairPagina, "extrairPagina e obrigatorio");
-        List<Map<String, Object>> acumulados = new ArrayList<>();
-        Set<String> idsVistos = new HashSet<>();
-
-        for (int numeroPagina = 1;
-             numeroPagina <= maxPaginas && acumulados.size() < maxProdutos;
-             numeroPagina++) {
-            List<Map<String, Object>> cardsDaPagina = Objects.requireNonNull(
-                    extrairPagina.apply(numeroPagina), "A extracao da pagina retornou uma lista nula");
-            int novosNaPagina = 0;
-
-            for (Map<String, Object> card : cardsDaPagina) {
-                Object url = card.get("url");
-                String idExterno = url instanceof String ? extrairIdExterno((String) url) : null;
-                if (idExterno == null || !idsVistos.add(idExterno)) {
-                    continue;
-                }
-
-                acumulados.add(card);
-                novosNaPagina++;
-                if (acumulados.size() >= maxProdutos) {
-                    break;
-                }
-            }
-
-            if (novosNaPagina == 0) {
-                break;
-            }
-        }
-
-        return List.copyOf(acumulados);
     }
 
     private List<PromocaoEncontrada> mapearParaPromocoes(List<Map<String, Object>> cardsBrutos,
